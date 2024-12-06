@@ -1,0 +1,30 @@
+{{- range $loadbalancerEureka := .Values.loadbalancerEureka}}  # loop que vai acessar values no campo de loadbalancerEureka
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{$loadbalancerEureka.name}} #loadbalancer-eureka 
+spec:
+  ports:
+  - port: {{$loadbalancerEureka.port}} #8081 
+    targetPort: {{$loadbalancerEureka.targetPort}} #8081 
+  selector:
+    app: {{$loadbalancerEureka.label}} #server 
+  type: {{$loadbalancerEureka.type}} # loadbalancer 
+---
+{{- end}} # fim do loop loadbalancerEureka
+
+{{- range $loadbalancerGateway := .Values.loadbalancerGateway}} # loop que vai acessar values no campo de loadbalancerGateway
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{$loadbalancerGateway.name}} #loadbalancer-gateway 
+spec:
+  ports:
+  - port: {{$loadbalancerGateway.port}} #8081 
+    targetPort: {{$loadbalancerGateway.targetPort}} #8081 
+  selector:
+    app: {{$loadbalancerGateway.label}} # gateway
+  type: {{$loadbalancerGateway.type}} # loadbalancer 
+---
+{{- end}} # fim do loop loadbalancerGateway
+

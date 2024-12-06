@@ -1,0 +1,64 @@
+configMap: 
+  name: dados
+  data:
+    SERVER_HOST: "http://server-0.server:8081/eureka,http://server-1.server:8081/eureka"
+    DB_HOST: "cris-helm-apps-mysql"
+    DB_USER: "root"
+
+gateway:
+  replicaCount: 2
+  image: crisdockerz/java-gateway-microsservico:v3
+  port: 80
+
+pagamentos:
+  replicaCount: 2
+  image: crisdockerz/java-pagamentos-microsservico:v3
+  port: 40000
+
+pedidos:
+  replicaCount: 2
+  image: crisdockerz/java-pedidos-microsservico:v3
+  port: 40001
+
+server:
+  replicaCount: 2
+  image: crisdockerz/java-server-microsservico:v4
+  port: 8081
+
+loadbalancer:
+
+
+service:
+  #  - name: mysql
+  #    label: mysql
+  #    port: 3306
+
+   - name: server
+     label: server
+     port: 8081
+ 
+   - name: pagamentos-ms
+     label: pagamentos
+     port: 40000
+
+   - name: pedidos-ms
+     label: pedidos
+     port: 40001
+
+loadbalancerEureka:
+   - name: loadbalancer-eureka
+     port: 8081
+     targetPort: 8081
+     label: server
+     type: LoadBalancer
+
+loadbalancerGateway:
+   - name: loadbalancer-gateway
+     port: 8082
+     targetPort: 8082
+     label: gateway
+     type: LoadBalancer
+
+secret:
+  name: cris-helm-apps-mysql
+ 

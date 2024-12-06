@@ -97,5 +97,27 @@ data:
 
 - Agora, acessando os valores **data:** de forma automática utilizando um loop do tipo **range**
 ```bash
-
+data:
+  {{ - range $key, $value := .Values.configMap.data  }}
+  {{$key}}: "{{$value}}"
+  {{- end}}
 ```
+
+- **{{ - range $key, $value := .Values.configMap.data  }}** Esta linha, basicamente esta utilizando um loop do tipo **range**, e **$key, $value** são chaves e valores que estão dentro de values:
+```bash
+    # $key                        $value
+    SERVER_HOST: "http://server-0.server:8081/eureka,http://server-1.server:8081/eureka"
+    DB_HOST: "mysql"
+``` 
+  o sinal **:=** esta informando que o **range** vai acessar o arquivo values do configmap no campo data com **.Values.configMap.data**
+  - Depois que acessou o arquivo values do configmap no campo data, ele adiciona em **{{$key}}: "{{$value}}"**, ficando dessa maneira de exemplo:
+  ```bash
+  {{$key}}: "{{$value}}" 
+
+  # exemplo de como ficaria
+  {{$SERVER_HOST}}: "{{$http://server-0.server:8081/eureka,http://server-1.server:8081/eureka}}" 
+  ``` 
+  - **{{- end}}** encerrando o loop range, sem o {{- end}}, o range vai ficar tentando acessar infinitamente os dados até encontrar
+
+  
+  

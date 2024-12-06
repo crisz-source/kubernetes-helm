@@ -119,5 +119,164 @@ data:
   ``` 
   - **{{- end}}** encerrando o loop range, sem o {{- end}}, o range vai ficar tentando acessar infinitamente os dados até encontrar
 
-  
-  
+### Etiquetas (labels)
+- **_helpers.tpl** no Helm é usado para definir funções de template e helpers que podem ser reutilizados em outros templates dentro do chart. Isso ajuda a manter os templates mais organizados, evitando duplicação de código e facilitando a manutenção.
+- As funções definidas no _helpers.tpl são escritas usando a linguagem de templates Go, a mesma usada nos arquivos de template do Helm. 
+
+```bash
+# 1 - Definição de labels comuns:
+{{- define "mychart.labels" -}}  
+app.kubernetes.io/name: {{ include "mychart.name" . }}
+helm.sh/chart: {{ include "mychart.chart" . }}
+app.kubernetes.io/instance: {{ .Release.Name }}
+app.kubernetes.io/version: {{ .Chart.AppVersion }}
+app.kubernetes.io/managed-by: {{ .Release.Service }}
+{{- end -}}
+
+# 2 - Definição do nome do chart:
+{{- define "mychart.name" -}}
+{{ .Chart.Name }}
+{{- end -}}
+
+# 3 - Definição da versão do chart:
+{{- define "mychart.chart" -}}
+{{ .Chart.Name }}-{{ .Chart.Version }}
+{{- end -}}
+
+# 4 - Uso de labels comuns em um deployment:
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "mychart.fullname" . }}
+  labels:
+    {{- include "mychart.labels" . | nindent 4 }}
+spec:
+  replicas: {{ .Values.replicaCount }}
+  selector:
+    matchLabels:
+      app: {{ include "mychart.name" . }}
+  template:
+    metadata:
+      labels:
+        app: {{ include "mychart.name" . }}
+    spec:
+      containers:
+      - name: {{ .Chart.Name }}
+        image: "{{ .Values.image.repository }}:{{ .Values.image.tag }}"
+        ports:
+        - containerPort: {{ .Values.service.port }}
+
+# 5 - Uso de nomes personalizados:
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ include "mychart.fullname" . }}
+spec:
+  type: {{ .Values.service.type }}
+  ports:
+  - port: {{ .Values.service.port }}
+    targetPort: {{ .Values.service.port }}
+  selector:
+    app: {{ include "mychart.name" . }}
+
+```
+
+### Criando serviços com helm
+- no arquivo values, foi definido um campo service com os 4 serviços que a aplicação precisa, e foi criado um template de services.
+```bash
+# arquivo values
+service:
+   - name: mysql
+     label: mysql
+     port: 3306
+
+   - name: server
+     label: server
+     port: 8081
+ 
+   - name: pagamentos-ms
+     label: pagamentos
+     port: 40000
+
+   - name: pedidos-ms
+     label: pedidos
+     port: 40001
+
+# arquivo de template services.yaml
+{{- range $service := .Values.service}}
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{$service.name}}
+  labels:
+    app: {{$service.label}}
+spec:
+  ports:
+  - port: {{$service.port}}
+    name: {{$service.name}}
+  clusterIP: None
+  selector:
+    app: {{$service.label}}
+---
+{{- end}}
+```
+- iniciando um loop do tipo **range**, usando o campo **$service** que é o mesmo campo que esta em v**alues.yaml**, e o o loop esta acessando **( := )** a cada serviço dentro de values **( .Values.service )**
+
+# Deploy da aplicação com helm
+- entre do diretório do helm e execute:
+```bash
+# 1 - para baixar a dependencia do mysql
+helm dependency update   # assim que executar, vai aparecer uma pasta charts com o mysql dentro.
+
+# 2 - inicia o minekube 
+minikube start --memory=6G --cpus=4
+
+# 3 - instale a aplicação e atualize caso precise
+helm install cris-helm-app . # aqui pode colocar qualquer nome que deseja
+helm upgrade cris-helmp-app . # aqui atualiza a aplicação
+
+# 4 - se retornar algo parecido: deu tudo certo, tanto na instalação e upgrade
+Release "cris-helm-apps" has been upgraded. Happy Helming!
+NAME: cris-helm-apps
+LAST DEPLOYED: Fri Dec  6 10:34:44 2024
+NAMESPACE: default
+STATUS: deployed
+REVISION: 2
+TEST SUITE: None
+```
+
+### LoadBalancer com helm
+- criei separadamente 2 loadbalancer que acessa campos de values.yaml. 
+- loadbalancer para acessar o eureka, e um para o gateway ficando da seguinte forma:
+```bash
+{{- range $loadbalancerEureka := .Values.loadbalancerEureka}}  # loop que vai acessar values no campo de loadbalancerEureka
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{$loadbalancerEureka.name}} #loadbalancer-eureka 
+spec:
+  ports:
+  - port: {{$loadbalancerEureka.port}} #8081 
+    targetPort: {{$loadbalancerEureka.targetPort}} #8081 
+  selector:
+    app: {{$loadbalancerEureka.label}} #server 
+  type: {{$loadbalancerEureka.type}} # loadbalancer 
+---
+{{- end}} # fim do loop loadbalancerEureka
+
+{{- range $loadbalancerGateway := .Values.loadbalancerGateway}} # loop que vai acessar values no campo de loadbalancerGateway
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{$loadbalancerGateway.name}} #loadbalancer-gateway 
+spec:
+  ports:
+  - port: {{$loadbalancerGateway.port}} #8081 
+    targetPort: {{$loadbalancerGateway.targetPort}} #8081 
+  selector:
+    app: {{$loadbalancerGateway.label}} # gateway
+  type: {{$loadbalancerGateway.type}} # loadbalancer 
+---
+{{- end}} # fim do loop loadbalancerGateway
+
+```
